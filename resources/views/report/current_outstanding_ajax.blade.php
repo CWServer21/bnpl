@@ -33,6 +33,15 @@
                     <span class="userDatatable-title">Late Payment Fee</span>
                 </th>
                 <th>
+                    <span class="userDatatable-title">Late Fee Waived</span>
+                </th>
+                <th>
+                    <span class="userDatatable-title">Late Fee After Waiver</span>
+                </th>
+                <th>
+                    <span class="userDatatable-title">Waived By</span>
+                </th>
+                <th>
                     <span class="userDatatable-title">Outstanding Blance</span>
                 </th>
                 <th>
@@ -173,8 +182,18 @@
                     <td>
                         <div class="userDatatable-content">{{ $last_paid_amount }}</div>
                     </td>
+                    @php $waiver = $purchase->fineWaiverSummary(); @endphp
                     <td>
                         <div class="userDatatable-content">{{ $purchase->late_fee }}</div>
+                    </td>
+                    <td>
+                        <div class="userDatatable-content">{{ number_format($waiver['waived'], 2) }}</div>
+                    </td>
+                    <td>
+                        <div class="userDatatable-content">{{ number_format($waiver['fine_after_waiver'], 2) }}</div>
+                    </td>
+                    <td>
+                        <div class="userDatatable-content">{{ $waiver['waived_by'] }}</div>
                     </td>
                     <td>
                         <div class="userDatatable-content">{{ number_format($outstanding_balance, 2) }}</div>

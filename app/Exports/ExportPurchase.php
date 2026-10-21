@@ -141,6 +141,8 @@ class ExportPurchase implements FromCollection, WithMapping, WithHeadings, WithE
         }
 
 
+        $waiver = $filter_data->fineWaiverSummary();
+
         return [
             @$filter_data->show_room->name,
             @$filter_data->show_room->zone->name,
@@ -161,6 +163,9 @@ class ExportPurchase implements FromCollection, WithMapping, WithHeadings, WithE
             Helper::formatNumber((float)($late_fee ?? 0) + $paid_fine_amount),
             Helper::formatNumber($paid_fine_amount),
             Helper::formatNumber($late_fee ?? 0),
+            Helper::formatNumber($waiver['waived']),
+            Helper::formatNumber($waiver['fine_after_waiver']),
+            $waiver['waived_by'],
             Helper::formatNumber($totalPaymentReceived),
             Helper::formatNumber(@$filter_data->hire_price ? (float)($filter_data->hire_price) + (float)($late_fee ?? 0) + $paid_fine_amount : '0.00'),
             // $outstandingBalanceFormatted, // Conditional: 0.00 if rejected/cancelled
@@ -208,6 +213,9 @@ class ExportPurchase implements FromCollection, WithMapping, WithHeadings, WithE
             "Late Payment Fee",
             "Late Payment Received",
             "Late Payment Outstanding",
+            "Late Fee Waived Amount",
+            "Late Fee After Waiver",
+            "Late Fee Waived By",
             "Total Payment Received",
             "Total Hire Price Including Late Payment Fee",
             "Outstanding Balance",

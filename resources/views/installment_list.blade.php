@@ -325,6 +325,13 @@
                                 <td>
                                     <div class="userDatatable-content">
                                         {{ $item->fine_remarks ?? '' }}
+                                        @if(($item->fine_waived_amount ?? 0) > 0)
+                                            <div style="color: #e30613;">
+                                                Fine waived: {{ number_format($item->fine_waived_amount, 2) }}
+                                                (fine after waiver: {{ number_format($item->fine_amount, 2) }})
+                                                by {{ optional($item->waivedBy)->name ?? 'N/A' }}
+                                            </div>
+                                        @endif
                                     </div>
                                 </td>
                             </tr>

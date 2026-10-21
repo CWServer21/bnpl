@@ -49,6 +49,9 @@ class BnplOrdersExport implements FromCollection, WithHeadings, WithMapping, Wit
             "Late Payment Fee",
             "Late Payment Received",
             "Late Payment Outstanding",
+            "Late Fee Waived Amount",
+            "Late Fee After Waiver",
+            "Late Fee Waived By",
             "Total Payment Received",
             "Total Hire Price Including Late Payment Fee",
             "Outstanding Balance",
@@ -309,6 +312,8 @@ class BnplOrdersExport implements FromCollection, WithHeadings, WithMapping, Wit
             }
 
 
+            $waiver = $purchase->fineWaiverSummary();
+
             return [
                 $slNo,
                 data_get($purchase, 'show_room.name', 'N/A'),
@@ -328,6 +333,9 @@ class BnplOrdersExport implements FromCollection, WithHeadings, WithMapping, Wit
                 $isRejectedOrCancelled ? '0.00' : Helper::formatNumber((float)($late_fee) + $paid_fine_amount),
                 $isRejectedOrCancelled ? '0.00' : Helper::formatNumber($paid_fine_amount),
                 $isRejectedOrCancelled ? '0.00' : Helper::formatNumber($late_fee),
+                Helper::formatNumber($waiver['waived']),
+                Helper::formatNumber($waiver['fine_after_waiver']),
+                $waiver['waived_by'],
                 Helper::formatNumber($totalPaymentReceived), // Conditional: 0.00 if rejected/cancelled
                 Helper::formatNumber(@$purchase->hire_price ? (float)($purchase->hire_price) + (float)($late_fee) + $paid_fine_amount : '0.00'),
                 // $outstandingBalanceFormatted, // Conditional: 0.00 if rejected/cancelled
@@ -417,7 +425,7 @@ class BnplOrdersExport implements FromCollection, WithHeadings, WithMapping, Wit
                 }
 
                 // Style header row
-                $event->sheet->getStyle('A1:AG1')->applyFromArray([
+                $event->sheet->getStyle('A1:AJ1')->applyFromArray([
                     'font' => [
                         'bold' => true
                     ],

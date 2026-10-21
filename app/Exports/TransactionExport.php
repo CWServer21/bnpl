@@ -37,7 +37,10 @@ class TransactionExport implements FromCollection, WithHeadings, WithMapping, Wi
             'Showroom',
             'Transaction Date & Time',
             'Transaction Amount',
-            'Received By'
+            'Received By',
+            'Late Fee Waived Amount',
+            'Late Fee After Waiver',
+            'Late Fee Waived By'
         ];
     }
 
@@ -56,7 +59,10 @@ class TransactionExport implements FromCollection, WithHeadings, WithMapping, Wi
             // Helper::formatDateTimeStandard($transaction->created_at),
             \Carbon\Carbon::parse($transaction->created_at)->format('d F Y'),
             ($transaction->amount),
-            Str::title($transaction->users->name ?? 'N/A')
+            Str::title($transaction->users->name ?? 'N/A'),
+            (float) ($transaction->fine_waived_amount ?? 0),
+            (float) ($transaction->fine_amount ?? 0),
+            ($transaction->fine_waived_amount ?? 0) > 0 ? Str::title($transaction->waivedBy->name ?? 'N/A') : 'N/A'
         ];
     }
 
@@ -65,7 +71,7 @@ class TransactionExport implements FromCollection, WithHeadings, WithMapping, Wi
         return [
             AfterSheet::class => function(AfterSheet $event) {
                 // Style header row
-                $event->sheet->getStyle('A1:J1')->applyFromArray([
+                $event->sheet->getStyle('A1:M1')->applyFromArray([
                     'font' => [
                         'bold' => true
                     ],
@@ -92,6 +98,9 @@ class TransactionExport implements FromCollection, WithHeadings, WithMapping, Wi
                     'H' => 20, // Transaction Date & Time
                     'I' => 18, // Transaction Amount
                     'J' => 25, // Received By
+                    'K' => 20, // Late Fee Waived Amount
+                    'L' => 20, // Late Fee After Waiver
+                    'M' => 25, // Late Fee Waived By
                 ];
 
                 foreach ($columns as $column => $width) {

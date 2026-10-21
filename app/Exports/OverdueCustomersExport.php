@@ -42,6 +42,9 @@ class OverdueCustomersExport implements FromCollection, WithHeadings, WithMappin
             "Late Payment Fee",
             "Late Payment Received",
             "Late Payment Outstanding",
+            "Late Fee Waived Amount",
+            "Late Fee After Waiver",
+            "Late Fee Waived By",
             "Total Payment Received",
             "Total Hire Price Including Late Payment Fee",
             "Outstanding Balance",
@@ -116,6 +119,8 @@ class OverdueCustomersExport implements FromCollection, WithHeadings, WithMappin
             $downPaymentPercent = $percent . ' %';
         }
 
+        $waiver = $customer->fineWaiverSummary();
+
         return [
             $this->rowNumber,
             $customer->show_room ? $customer->show_room->name : 'N/A',
@@ -131,6 +136,9 @@ class OverdueCustomersExport implements FromCollection, WithHeadings, WithMappin
             Helper::formatNumber((float)($late_fee ?? 0) + $paid_fine_amount),
             Helper::formatNumber($paid_fine_amount),
             Helper::formatNumber($late_fee ?? 0),
+            Helper::formatNumber($waiver['waived']),
+            Helper::formatNumber($waiver['fine_after_waiver']),
+            $waiver['waived_by'],
             Helper::formatNumber($totalPaymentReceived),
             Helper::formatNumber(@$customer->hire_price ? (float)($customer->hire_price) + (float)($late_fee ?? 0) + $paid_fine_amount : '0.00'),
             // $outstandingBalanceFormatted, // Conditional: 0.00 if rejected/cancelled
@@ -146,7 +154,7 @@ class OverdueCustomersExport implements FromCollection, WithHeadings, WithMappin
     {
         return [
             AfterSheet::class => function(AfterSheet $event) {
-                $event->sheet->getDelegate()->getStyle('A1:K1')->applyFromArray([
+                $event->sheet->getDelegate()->getStyle('A1:N1')->applyFromArray([
                     'font' => [
                         'bold' => true
                     ],
@@ -162,7 +170,7 @@ class OverdueCustomersExport implements FromCollection, WithHeadings, WithMappin
                 ]);
 
                 // Auto-size columns
-                foreach(range('A','K') as $column) {
+                foreach(range('A','N') as $column) {
                     $event->sheet->getColumnDimension($column)->setAutoSize(true);
                 }
             }

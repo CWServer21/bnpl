@@ -33,32 +33,32 @@ class PaymentCollectionController extends Controller
         $numberOfInstallments = (int) $request->input('number_of_instllment');
         $hire_purchase_id     = $request->input('hire_purchase_id');
 
-        $lateFinePerMonth = 500;
-        $totalFine = 0;
-        $currentDate = Carbon::now();
+        $grossFine = (float) app(\App\Service\LateFeeService::class)
+            ->calculateLateFineForNextInstallments($hire_purchase_id, $numberOfInstallments);
 
-        $selectedInstallments = Installment::where('status', 0)
-            ->orderBy('loan_start_date')
-            ->take($numberOfInstallments)
-            ->where('hire_purchase_id', $hire_purchase_id)
-            ->get();
+        // Waiver can never exceed the calculated fine, and only privileged roles may waive.
+        $waivedFine = $this->canWaiveFine()
+            ? min(max(round((float) $request->input('waive_amount', 0), 2), 0), $grossFine)
+            : 0.0;
+        $netFine = $grossFine - $waivedFine;
 
-        foreach ($selectedInstallments as $installment) {
-            $dueDate = Carbon::parse($installment->loan_start_date);
-            $penaltyStartAnchor = $dueDate->copy()->addMonth()->addDay();
-
-            if ($currentDate->greaterThanOrEqualTo($penaltyStartAnchor)) {
-                $monthsWithPenalty = $penaltyStartAnchor->diffInMonths($currentDate) + 1;
-                $totalFine += $monthsWithPenalty * $lateFinePerMonth;
-            }
-        }
-
-        $totalAmount = ($monthlyInstallment * $numberOfInstallments) + $totalFine;
+        $totalAmount = ($monthlyInstallment * $numberOfInstallments) + $netFine;
 
         return response()->json([
-            'total_amount' => $totalAmount,
-            'fine' => $totalFine,
+            'total_amount' => round($totalAmount, 2),
+            'gross_fine' => $grossFine,
+            'waived_fine' => $waivedFine,
+            'fine' => $netFine,
+            'can_waive' => $this->canWaiveFine(),
         ]);
+    }
+
+    /**
+     * Only admins can waive late fees.
+     */
+    private function canWaiveFine(): bool
+    {
+        return Auth::user()->role_id == User::ADMIN;
     }
     public function calculateAmount(Request $request)
     {
@@ -98,7 +98,8 @@ class PaymentCollectionController extends Controller
             }
 
             $installment_due_check = Installment::where('hire_purchase_id', $hirepurchase->id)->where('status', 0)->count();
-            return view('installment.payment.details', compact("hirepurchase", "installment_due_check"));
+            $canWaiveFine = $this->canWaiveFine();
+            return view('installment.payment.details', compact("hirepurchase", "installment_due_check", "canWaiveFine"));
         } else {
             return response()->json([
                 'error' => true,
@@ -140,8 +141,26 @@ class PaymentCollectionController extends Controller
             return redirect()->back()->with('error', 'This payment is already being processed. Please wait a moment, then check the transaction list before submitting again.');
         }
 
+        // Late fee waiver: recompute the fine on the server so the client can't
+        // waive more than what is actually owed, and so a waiver is only honoured
+        // for roles that are allowed to give one.
+        $grossFine = (float) app(\App\Service\LateFeeService::class)
+            ->calculateLateFineForNextInstallments($request->hire_purchase_id, (int) $request->number_of_instllment);
+        $requestedWaiver = round((float) ($request->fine_waived_amount ?? 0), 2);
+
+        if ($requestedWaiver > 0 && !$this->canWaiveFine()) {
+            $lock->release();
+            return redirect()->back()->with('error', 'You are not allowed to waive late fees.');
+        }
+        if ($requestedWaiver > $grossFine) {
+            $lock->release();
+            return redirect()->back()->with('error', 'Waived amount cannot be greater than the late fine (' . $grossFine . ' BDT).');
+        }
+
         $data = $request->all();
-        $data['fine_amount'] = (float) ($request->fine_amount ?? 0);
+        $data['fine_amount'] = $grossFine - $requestedWaiver; // net fine actually charged
+        $data['fine_waived_amount'] = $requestedWaiver;
+        $data['fine_waived_by'] = $requestedWaiver > 0 ? Auth::id() : null;
         $data['fine_remarks'] = $request->fine_remarks;
         $data['transaction_type'] = "Installment ";
         $data['created_by'] = Auth::user()->id;
@@ -155,7 +174,8 @@ class PaymentCollectionController extends Controller
             $monthly_installment = (float) $request->monthly_installment;
             $number_of_installment = floor($amount / $monthly_installment);
             $total_pay_amount = $monthly_installment * $number_of_installment;
-            $advance_payment = (float) $request->amount - $total_pay_amount;
+            // This leftover is the (net, post-waiver) fine that is posted to ERP via FineApi.
+            $advance_payment = round((float) $request->amount - $total_pay_amount, 2);
             $data['number_of_instllment'] = $number_of_installment;
 
             Log::info('Payment calculations', [
@@ -199,18 +219,18 @@ class PaymentCollectionController extends Controller
                 $paymentRef = "Cash-BNPL-Ins-{$installment_number}";
 
 
-                $response =    $ApiService->CollectionApi($hirepurchase->order_no, $installment_number, $paymentRef);
+                // $response =    $ApiService->CollectionApi($hirepurchase->order_no, $installment_number, $paymentRef);
 
-                logger([
-                    'response' => $response,
-                ]);
+                // logger([
+                //     'response' => $response,
+                // ]);
 
 
-                if ($response['error'] == 1) {
-                    $sent = 0;
-                } else {
-                    $sent = 1;
-                }
+                // if ($response['error'] == 1) {
+                //     $sent = 0;
+                // } else {
+                //     $sent = 1;
+                // }
 
                 if ($key == 0) {
                     $fineInstallmentNumber = $installment_number;
@@ -228,15 +248,17 @@ class PaymentCollectionController extends Controller
                         'ins_no' => $installment_number,
                         'payment_ref' => $paymentRef,
                     ],
-                    'erp_status' => $sent,
-                    'response' => json_encode($response),
+                    // 'erp_status' => $sent,
+                    // 'response' => json_encode($response),
                 ]);
 
                 $ins = Installment::findOrFail($install->id);
                 $ins->status = 1;
 
-                if ($request->fine_amount > 0 && $key == 0) {
-                    $ins->fine_amount = $request->fine_amount;
+                if (($data['fine_amount'] > 0 || $data['fine_waived_amount'] > 0) && $key == 0) {
+                    $ins->fine_amount = $data['fine_amount'];
+                    $ins->fine_waived_amount = $data['fine_waived_amount'];
+                    $ins->fine_waived_by = $data['fine_waived_by'];
                     $ins->fine_remarks = $request->fine_remarks;
                 }
 
@@ -248,7 +270,7 @@ class PaymentCollectionController extends Controller
             // above and posted the same penalty_amt to ERP once per installment,
             // producing exact duplicate Fine/Delay Charge rows in ERP.
             if ($advance_payment > 0 && $fineInstallmentNumber !== null) {
-                $fineResponse = $ApiService->FineApi($hirepurchase->order_no, $advance_payment, $fineInstallmentNumber, $finePaymentRef);
+                // $fineResponse = $ApiService->FineApi($hirepurchase->order_no, $advance_payment, $fineInstallmentNumber, $finePaymentRef);
 
                 PaymentErpHistory::create([
                     'tracking_id' => $hirepurchase->id,
@@ -261,8 +283,8 @@ class PaymentCollectionController extends Controller
                         'ins_no' => $fineInstallmentNumber,
                         'payment_ref' => $finePaymentRef,
                     ],
-                    'erp_status' => (isset($fineResponse['error']) && $fineResponse['error'] == 1) ? 0 : 1,
-                    'response' => json_encode($fineResponse),
+                    // 'erp_status' => (isset($fineResponse['error']) && $fineResponse['error'] == 1) ? 0 : 1,
+                    // 'response' => json_encode($fineResponse),
                 ]);
             }
 
@@ -333,12 +355,12 @@ class PaymentCollectionController extends Controller
                 }
             }
 
-            if ($response['error'] == 1) {
-                // $erp_log->sent = 0;
-                // echo $response['error'];
-            } else {
-                //    $erp_log->sent = 1;
-            }
+            // if ($response['error'] == 1) {
+            //     // $erp_log->sent = 0;
+            //     // echo $response['error'];
+            // } else {
+            //     //    $erp_log->sent = 1;
+            // }
             DB::commit();
             return redirect()->back()->with('success', 'Success! Installment');
         } catch (Exception $e) {

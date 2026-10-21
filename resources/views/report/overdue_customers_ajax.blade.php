@@ -24,6 +24,15 @@
                     <span class="userDatatable-title">Late Payment Fee</span>
                 </th>
                 <th>
+                    <span class="userDatatable-title">Late Fee Waived</span>
+                </th>
+                <th>
+                    <span class="userDatatable-title">Late Fee After Waiver</span>
+                </th>
+                <th>
+                    <span class="userDatatable-title">Waived By</span>
+                </th>
+                <th>
                     <span class="userDatatable-title">Outstanding Balance</span>
                 </th>
                 <th>
@@ -106,8 +115,18 @@
                             {{ @$customer->hire_price ? (float) $customer->hire_price : '0.00' }}
                         </div>
                     </td>
+                    @php $waiver = $customer->fineWaiverSummary(); @endphp
                     <td>
                         <div class="userDatatable-content">{{ (float) $customer->late_fee }}</div>
+                    </td>
+                    <td>
+                        <div class="userDatatable-content">{{ number_format($waiver['waived'], 2) }}</div>
+                    </td>
+                    <td>
+                        <div class="userDatatable-content">{{ number_format($waiver['fine_after_waiver'], 2) }}</div>
+                    </td>
+                    <td>
+                        <div class="userDatatable-content">{{ $waiver['waived_by'] }}</div>
                     </td>
                     <td>
                         <div class="userDatatable-content">{{ number_format($outstanding_balance, 2)}}</div>

@@ -71,7 +71,7 @@
                             <div class="col-md-12 mb-25" id="remarks_container" style="display:none;">
                                 <div class="holder">
                                     <div class="input-holder">
-                                        <textarea name="fine_remarks" id="fine_remarks" class="form-control" placeholder="Enter remarks for late fine..."></textarea>
+                                        <textarea name="fine_remarks" id="fine_remarks" class="form-control" placeholder="Enter remarks for late fine (and reason, if waived)..."></textarea>
                                     </div>
                                 </div>
                             </div>
@@ -80,6 +80,16 @@
                             <div class="col-md-12 mb-25">
                                 <h3 id="fine_amount_display" style="color: red; display: none;"></h3>
                             </div>
+                            @if (!empty($canWaiveFine))
+                                <div class="col-md-12 mb-25" id="waive_container" style="display:none;">
+                                    <label for="fine_waived_amount" class="mb-1">Waive late fine (BDT)</label>
+                                    <input type="number" min="0" step="0.01" value="0"
+                                        name="fine_waived_amount" id="fine_waived_amount" class="form-control"
+                                        oninput="CalculateAmount()">
+                                    <small class="text-muted">Max: <span id="max_waive">0</span> BDT. The waived
+                                        amount is deducted from the fine collected and sent to ERP.</small>
+                                </div>
+                            @endif
                             <div class="col-md-12 mb-25">
                                 <div class="select-style2">
                                     <div class="form-control d-flex gap-3 align-items-center">
@@ -232,6 +242,7 @@
                     monthly_installment: monthly_installment,
                     number_of_instllment: number_of_instllment,
                     hire_purchase_id: hire_purchase_id,
+                    waive_amount: $("#fine_waived_amount").val() || 0,
                     _token: $('meta[name="csrf-token"]').attr('content') // Laravel CSRF token
                 },
                 success: function(response) {
@@ -246,14 +257,42 @@
                     //     $("#fine_amount_display").hide();
                     // }
 
-                    if (response.fine && response.fine > 0) {
-                        $("#fine_amount_display")
-                            .html("Fine Amount: " + response.fine + " BDT")
-                            .show();
+                    // Waive box is only rendered for roles allowed to waive.
+                    if ($("#waive_container").length) {
+                        if (response.gross_fine > 0) {
+                            $("#waive_container").show();
+                            $("#max_waive").text(response.gross_fine);
+                            $("#fine_waived_amount").attr("max", response.gross_fine);
+                            // Server clamps the waiver; reflect it back in the input.
+                            if (parseFloat($("#fine_waived_amount").val() || 0) > response.waived_fine) {
+                                $("#fine_waived_amount").val(response.waived_fine);
+                            }
+                        } else {
+                            $("#waive_container").hide();
+                            $("#fine_waived_amount").val(0);
+                        }
+                    }
+
+                    if (response.gross_fine > 0) {
+                        var fineText = "Fine Amount: " + response.gross_fine + " BDT";
+                        if (response.waived_fine > 0) {
+                            fineText += " &minus; Waived " + response.waived_fine + " = " + response.fine + " BDT";
+                        }
+                        $("#fine_amount_display").html(fineText).show();
                         $("#fine_amount").val(response.fine);
+                    }
+
+                    // One remarks box covers the late fine and any waiver of it, so it is
+                    // needed whenever there is a fine, even if it is waived in full.
+                    if (response.gross_fine && response.gross_fine > 0) {
                         $("#remarks_container").show();
                         $("#fine_remarks").attr("required", true);
                     } else {
+                        $("#remarks_container").hide();
+                        $("#fine_remarks").removeAttr("required");
+                    }
+
+                    if (!(response.gross_fine > 0)) {
                         $("#fine_amount_display").hide();
                         $("#fine_amount").val('');
                         $("#remarks_container").hide();

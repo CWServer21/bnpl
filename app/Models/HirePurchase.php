@@ -191,6 +191,23 @@ class HirePurchase extends Model
     {
         return $this->hasMany(Installment::class, 'hire_purchase_id');
     }
+    /**
+     * Late fee waiver totals for this order, used by reports and exports.
+     * waived = total waived, fine_after_waiver = fine actually charged on the
+     * waived installments, waived_by = distinct names of who waived.
+     */
+    public function fineWaiverSummary(): array
+    {
+        $waived = $this->installment->where('fine_waived_amount', '>', 0);
+
+        return [
+            'waived' => (float) $waived->sum('fine_waived_amount'),
+            'fine_after_waiver' => (float) $waived->sum('fine_amount'),
+            'waived_by' => $waived->map(fn ($i) => optional($i->waivedBy)->name)
+                ->filter()->unique()->implode(', ') ?: 'N/A',
+        ];
+    }
+
     public function guaranter_info()
     {
         return $this->hasMany(GuaranterInfo::class);

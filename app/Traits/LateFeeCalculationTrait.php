@@ -63,6 +63,21 @@ trait LateFeeCalculationTrait
 
 
 
+    /**
+     * Late fine for the next $count unpaid installments (oldest due first),
+     * i.e. the installments a collection of $count installments would settle.
+     */
+    public function calculateLateFineForNextInstallments($hireId, $count)
+    {
+        $installments = Installment::where('hire_purchase_id', $hireId)
+            ->where('status', 0)
+            ->orderBy('loan_start_date')
+            ->take((int) $count)
+            ->get();
+
+        return $installments->sum(fn ($installment) => $this->calculateInstallmentLateFine($installment));
+    }
+
     // private function calculateInstallmentLateFine($installment)
     // {
     //     $lateFinePerMonth = 500;
