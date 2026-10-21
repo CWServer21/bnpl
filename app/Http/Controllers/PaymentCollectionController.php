@@ -219,18 +219,18 @@ class PaymentCollectionController extends Controller
                 $paymentRef = "Cash-BNPL-Ins-{$installment_number}";
 
 
-                // $response =    $ApiService->CollectionApi($hirepurchase->order_no, $installment_number, $paymentRef);
+                $response =    $ApiService->CollectionApi($hirepurchase->order_no, $installment_number, $paymentRef);
 
-                // logger([
-                //     'response' => $response,
-                // ]);
+                logger([
+                    'response' => $response,
+                ]);
 
 
-                // if ($response['error'] == 1) {
-                //     $sent = 0;
-                // } else {
-                //     $sent = 1;
-                // }
+                if ($response['error'] == 1) {
+                    $sent = 0;
+                } else {
+                    $sent = 1;
+                }
 
                 if ($key == 0) {
                     $fineInstallmentNumber = $installment_number;
@@ -248,8 +248,8 @@ class PaymentCollectionController extends Controller
                         'ins_no' => $installment_number,
                         'payment_ref' => $paymentRef,
                     ],
-                    // 'erp_status' => $sent,
-                    // 'response' => json_encode($response),
+                    'erp_status' => $sent,
+                    'response' => json_encode($response),
                 ]);
 
                 $ins = Installment::findOrFail($install->id);
@@ -270,7 +270,7 @@ class PaymentCollectionController extends Controller
             // above and posted the same penalty_amt to ERP once per installment,
             // producing exact duplicate Fine/Delay Charge rows in ERP.
             if ($advance_payment > 0 && $fineInstallmentNumber !== null) {
-                // $fineResponse = $ApiService->FineApi($hirepurchase->order_no, $advance_payment, $fineInstallmentNumber, $finePaymentRef);
+                $fineResponse = $ApiService->FineApi($hirepurchase->order_no, $advance_payment, $fineInstallmentNumber, $finePaymentRef);
 
                 PaymentErpHistory::create([
                     'tracking_id' => $hirepurchase->id,
@@ -283,8 +283,8 @@ class PaymentCollectionController extends Controller
                         'ins_no' => $fineInstallmentNumber,
                         'payment_ref' => $finePaymentRef,
                     ],
-                    // 'erp_status' => (isset($fineResponse['error']) && $fineResponse['error'] == 1) ? 0 : 1,
-                    // 'response' => json_encode($fineResponse),
+                    'erp_status' => (isset($fineResponse['error']) && $fineResponse['error'] == 1) ? 0 : 1,
+                    'response' => json_encode($fineResponse),
                 ]);
             }
 
@@ -355,12 +355,12 @@ class PaymentCollectionController extends Controller
                 }
             }
 
-            // if ($response['error'] == 1) {
-            //     // $erp_log->sent = 0;
-            //     // echo $response['error'];
-            // } else {
-            //     //    $erp_log->sent = 1;
-            // }
+            if ($response['error'] == 1) {
+                // $erp_log->sent = 0;
+                // echo $response['error'];
+            } else {
+                //    $erp_log->sent = 1;
+            }
             DB::commit();
             return redirect()->back()->with('success', 'Success! Installment');
         } catch (Exception $e) {
