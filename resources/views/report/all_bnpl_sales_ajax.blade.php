@@ -36,9 +36,6 @@
                     <span class="userDatatable-title">Late Fee Waived</span>
                 </th>
                 <th>
-                    <span class="userDatatable-title">Late Fee After Waiver</span>
-                </th>
-                <th>
                     <span class="userDatatable-title">Waived By</span>
                 </th>
                 <th>
@@ -260,9 +257,6 @@
                     </td>
                     <td>
                         <div class="userDatatable-content">{{ number_format($waiver['waived'], 2) }}</div>
-                    </td>
-                    <td>
-                        <div class="userDatatable-content">{{ number_format($waiver['fine_after_waiver'], 2) }}</div>
                     </td>
                     <td>
                         <div class="userDatatable-content">{{ $waiver['waived_by'] }}</div>

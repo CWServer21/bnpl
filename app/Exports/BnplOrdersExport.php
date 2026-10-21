@@ -50,7 +50,6 @@ class BnplOrdersExport implements FromCollection, WithHeadings, WithMapping, Wit
             "Late Payment Received",
             "Late Payment Outstanding",
             "Late Fee Waived Amount",
-            "Late Fee After Waiver",
             "Late Fee Waived By",
             "Total Payment Received",
             "Total Hire Price Including Late Payment Fee",
@@ -334,7 +333,6 @@ class BnplOrdersExport implements FromCollection, WithHeadings, WithMapping, Wit
                 $isRejectedOrCancelled ? '0.00' : Helper::formatNumber($paid_fine_amount),
                 $isRejectedOrCancelled ? '0.00' : Helper::formatNumber($late_fee),
                 Helper::formatNumber($waiver['waived']),
-                Helper::formatNumber($waiver['fine_after_waiver']),
                 $waiver['waived_by'],
                 Helper::formatNumber($totalPaymentReceived), // Conditional: 0.00 if rejected/cancelled
                 Helper::formatNumber(@$purchase->hire_price ? (float)($purchase->hire_price) + (float)($late_fee) + $paid_fine_amount : '0.00'),

@@ -39,7 +39,6 @@ class TransactionExport implements FromCollection, WithHeadings, WithMapping, Wi
             'Transaction Amount',
             'Received By',
             'Late Fee Waived Amount',
-            'Late Fee After Waiver',
             'Late Fee Waived By'
         ];
     }
@@ -61,7 +60,6 @@ class TransactionExport implements FromCollection, WithHeadings, WithMapping, Wi
             ($transaction->amount),
             Str::title($transaction->users->name ?? 'N/A'),
             (float) ($transaction->fine_waived_amount ?? 0),
-            (float) ($transaction->fine_amount ?? 0),
             ($transaction->fine_waived_amount ?? 0) > 0 ? Str::title($transaction->waivedBy->name ?? 'N/A') : 'N/A'
         ];
     }
@@ -71,7 +69,7 @@ class TransactionExport implements FromCollection, WithHeadings, WithMapping, Wi
         return [
             AfterSheet::class => function(AfterSheet $event) {
                 // Style header row
-                $event->sheet->getStyle('A1:M1')->applyFromArray([
+                $event->sheet->getStyle('A1:L1')->applyFromArray([
                     'font' => [
                         'bold' => true
                     ],
@@ -99,8 +97,7 @@ class TransactionExport implements FromCollection, WithHeadings, WithMapping, Wi
                     'I' => 18, // Transaction Amount
                     'J' => 25, // Received By
                     'K' => 20, // Late Fee Waived Amount
-                    'L' => 20, // Late Fee After Waiver
-                    'M' => 25, // Late Fee Waived By
+                    'L' => 25, // Late Fee Waived By
                 ];
 
                 foreach ($columns as $column => $width) {
